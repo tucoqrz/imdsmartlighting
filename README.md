@@ -10,11 +10,11 @@ O projeto utiliza os seguintes componentes:
 * **QuantumLeap**: Persistência de dados temporais no CrateDB.
 * **CrateDB**: Banco de dados para séries temporais.
 * **Grafana**: Dashboards para visualização de dados.
-* **Python Populate**: Agente critou um script utilitário para automação e simulação de dados.
+* **Python Populate**: Script utilitário para automação e simulação de dados.
 
 
 ## Sobre o Script Python Populate
-A gente criou um script para facilitar para automatizar a configuração inicial do ecossistema FIWARE e simular o envio de dados dos dispositivos. Nesse caso, são criados 10 "Postes" com os valores dos atributos gerados aleatoriamente. 
+Criamos um script para facilitar para automatizar a configuração inicial do ecossistema FIWARE e simular o envio de dados dos dispositivos. Nesse caso, são criados 10 "Postes" com os valores dos atributos gerados aleatoriamente. 
 
 O que o Script faz:
 * **Criação do Serviço**: Configura o imdlampservice no IoT Agent, definindo as chaves de segurança (API Key) e o tipo de entidade padrão (Lamp).
