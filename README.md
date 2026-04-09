@@ -43,3 +43,21 @@ No terminal, dentro da pasta raiz do projeto, execute:
 ```bash
 docker exec -it fiware-populate python populate.py
 ```
+
+### 4. Acessar o Grafana
+
+URL:
+
+http://localhost:3000
+
+Login inicial:
+
+usuário: admin
+senha: admin
+
+Será solicitado alterar a senha no primeiro acesso.
+
+5. Visualizar o Dashboard
+Dashboards → Browse → General → IMD Smart Lighting
+
+Quando houver alterações nos atributos dos dispositivos, os dashboards são automaticamente atualizados.
