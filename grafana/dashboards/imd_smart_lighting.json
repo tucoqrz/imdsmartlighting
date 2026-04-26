@@ -113,15 +113,36 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "status" },
+            "matcher": { "id": "byName", "options": "Status" },
             "properties": [
-              { "id": "mappings", "value": [
-                { "type": "value", "options": { "ON":  { "color": "green", "index": 0, "text": "🟢 ON" } } },
-                { "type": "value", "options": { "OFF": { "color": "red",   "index": 1, "text": "🔴 OFF" } } }
-              ]}
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "ON":  { "color": "green", "text": "🟢 ON" } } },
+                  { "type": "value", "options": { "OFF": { "color": "red",   "text": "🔴 OFF" } } }
+                ]
+              }
             ]
-          }
-        ]
+          },
+
+            {
+              "matcher": { "id": "byName", "options": "Movimento" },
+              "properties": [
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "true":  { "color": "orange", "text": "🚶 Movimento" },
+                        "false": { "color": "blue",   "text": "😴 Sem movimento" }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
       },
       "options": {
         "showHeader": true,
@@ -133,7 +154,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT t.entity_id AS \"Poste\", t.status AS \"Status\", t.brightness AS \"Brilho\", t.ambient_light AS \"Luz Ambiente\", t.time_index AS \"Última Atualização\" FROM mtimdlampservice.etlamp t INNER JOIN (SELECT entity_id, MAX(time_index) AS max_time FROM mtimdlampservice.etlamp GROUP BY entity_id) latest ON t.entity_id = latest.entity_id AND t.time_index = latest.max_time ORDER BY t.entity_id ASC",
+          "rawSql": "SELECT t.entity_id AS \"Poste\", t.status AS \"Status\", t.brightness AS \"Brilho\", t.ambient_light AS \"Luz Ambiente\", t.motion_detected AS \"Movimento\", t.time_index AS \"Última Atualização\" FROM mtimdlampservice.etlamp t INNER JOIN (SELECT entity_id, MAX(time_index) AS max_time FROM mtimdlampservice.etlamp GROUP BY entity_id) latest ON t.entity_id = latest.entity_id AND t.time_index = latest.max_time ORDER BY t.entity_id ASC",
           "refId": "A"
         }
       ]
