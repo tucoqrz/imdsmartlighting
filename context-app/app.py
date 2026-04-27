@@ -48,6 +48,7 @@ def notify():
         entity_id = entity["id"]
         ambient = entity["ambient_light"]["value"]
         motion = entity["motion_detected"]["value"]
+        active = entity["active"]["value"]
 
         # > 400 = Dia -> Poste desligado (Economia de energia)
         if ambient > 400:
@@ -66,7 +67,7 @@ def notify():
         update = {
             "status": {"value": status, "type": "Text"},
             "brightness": {"value": brightness, "type": "Number"},
-            "active": {"value": True, "type": "Boolean"}
+            "active": {"value": active, "type": "Boolean"}
         }
 
         try:
