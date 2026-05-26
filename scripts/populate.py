@@ -48,7 +48,7 @@ def create_subscription():
         "description": "Notificar QuantumLeap sobre mudanças nas lâmpadas",
         "type": "Subscription",
         "entities": [{"type": "Lamp"}],
-        "watchedAttributes": ["status", "brightness", "ambient_light", "motion_detected", "active"],
+        "watchedAttributes": ["status", "brightness", "ambient_light", "active"],
         "notification": {
             "format": "normalized",
             "endpoint": {
@@ -76,7 +76,7 @@ def create_subscription():
         "description": "Notificar motor de decisão sobre mudanças nas lâmpadas",
         "type": "Subscription",
         "entities": [{"type": "Lamp"}],
-        "watchedAttributes": ["ambient_light", "motion_detected", "active"],
+        "watchedAttributes": ["ambient_light", "active"],
         "notification": {
             "format": "normalized",
             "endpoint": {
@@ -102,10 +102,28 @@ def create_lamps(number_of_lamps):
         "Content-Type": "application/json"
     }
 
+    # Coordenadas fixas dos postes ao redor do IMD/UFRN (Natal-RN)
+    # Formato GeoJSON: [longitude, latitude]
+    lamp_locations = {
+        1:  [-35.20736, -5.83454],
+        2:  [-35.20681, -5.83401],
+        3:  [-35.20624, -5.83356],
+        4:  [-35.20570, -5.83312],
+        5:  [-35.20515, -5.83267],
+        6:  [-35.20460, -5.83489],
+        7:  [-35.20405, -5.83535],
+        8:  [-35.20550, -5.83580],
+        9:  [-35.20615, -5.83522],
+        10: [-35.20680, -5.83468],
+    }
+
     for i in range(1, number_of_lamps + 1):
         device_id = f"lamp{i:03d}" 
         # No NGSI-LD, IDs de entidades DEVEM ser URNs válidas
         entity_id = f"urn:ngsi-ld:Lamp:{i:03d}"
+
+        # Coordenadas do poste (usa posição padrão se não definida)
+        coordinates = lamp_locations.get(i, [-35.2050, -5.8340])
         
         device_payload = {
             "devices": [
@@ -113,16 +131,26 @@ def create_lamps(number_of_lamps):
                     "device_id": device_id,
                     "entity_name": entity_id,
                     "entity_type": "Lamp",
+                    "apikey": API_KEY,
                     "protocol": "PDI-IoTA-JSON",
                     "transport": "HTTP",
-                    # Atributos: object_id = nome completo para que o Orion-LD
-                    # receba os nomes corretos que as subscriptions observam
+                    # Atributos dinâmicos: mudam a cada envio de dados
                     "attributes": [
                         { "object_id": "status", "name": "status", "type": "Property" },
                         { "object_id": "brightness", "name": "brightness", "type": "Property" },
                         { "object_id": "ambient_light", "name": "ambient_light", "type": "Property" },
-                        { "object_id": "motion_detected", "name": "motion_detected", "type": "Property" },
                         { "object_id": "active", "name": "active", "type": "Property" }
+                    ],
+                    # Atributos estáticos: definidos uma vez no provisionamento
+                    "static_attributes": [
+                        {
+                            "name": "location",
+                            "type": "GeoProperty",
+                            "value": {
+                                "type": "Point",
+                                "coordinates": coordinates
+                            }
+                        }
                     ]
                 }
             ]
@@ -144,7 +172,6 @@ def create_lamps(number_of_lamps):
         status = random.choice(["ON", "OFF"])
         brightness = random.randint(0, 100)
         ambient_light = random.randint(0, 800)
-        motion_detected = random.choice([True, False])
         active = True
 
         # O envio do dado pelo dispositivo (sul → norte) via JSON do IoT Agent
@@ -154,7 +181,6 @@ def create_lamps(number_of_lamps):
                 "status": status, 
                 "brightness": brightness, 
                 "ambient_light": ambient_light,
-                "motion_detected": motion_detected,
                 "active": active
             })
             print(f"Dados enviados para {entity_id}")

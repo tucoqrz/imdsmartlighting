@@ -31,7 +31,6 @@ def notify():
                 "id": "urn:ngsi-ld:Lamp:001",
                 "type": "Lamp",
                 "ambient_light": { "type": "Property", "value": 500 },
-                "motion_detected": { "type": "Property", "value": true },
                 "active": { "type": "Property", "value": true }
             }
         ]
@@ -47,11 +46,10 @@ def notify():
 
         # No formato normalizado NGSI-LD, atributos são objetos com "value"
         ambient = entity.get("ambient_light", {}).get("value")
-        motion = entity.get("motion_detected", {}).get("value")
         active = entity.get("active", {}).get("value")
 
         # Pula entidades sem os dados necessários
-        if ambient is None or motion is None:
+        if ambient is None:
             print(f"{entity_id} → dados insuficientes, pulando...")
             continue
 
@@ -60,14 +58,9 @@ def notify():
             status = "OFF"
             brightness = 0
         else:
-            # Se não, noite -> se houver alguém por perto, liga poste
-            if motion:
-                status = "ON"
-                brightness = 100
-            # Se noite -> não há alguém por perto, poste ligado com luminosidade baixa
-            else:
-                status = "ON"
-                brightness = 20
+            # Noite -> poste ligado com luminosidade proporcional
+            status = "ON"
+            brightness = 100
 
         # Payload de atualização no formato NGSI-LD normalizado
         update = {

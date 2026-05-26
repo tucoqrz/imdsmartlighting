@@ -123,26 +123,8 @@
                 ]
               }
             ]
-          },
-
-            {
-              "matcher": { "id": "byName", "options": "Movimento" },
-              "properties": [
-                {
-                  "id": "mappings",
-                  "value": [
-                    {
-                      "type": "value",
-                      "options": {
-                        "true":  { "color": "orange", "text": "🚶 Movimento" },
-                        "false": { "color": "blue",   "text": "😴 Sem movimento" }
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
+          }
+        ]
       },
       "options": {
         "showHeader": true,
@@ -154,49 +136,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT t.entity_id AS \"Poste\", t.status AS \"Status\", t.brightness AS \"Brilho\", t.ambient_light AS \"Luz Ambiente\", t.motion_detected AS \"Movimento\", t.time_index AS \"Última Atualização\" FROM mtimdlampservice.etlamp t INNER JOIN (SELECT entity_id, MAX(time_index) AS max_time FROM mtimdlampservice.etlamp GROUP BY entity_id) latest ON t.entity_id = latest.entity_id AND t.time_index = latest.max_time WHERE t.active = true ORDER BY t.entity_id ASC",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "title": "🚶 Detecção de Movimento",
-      "description": "Histórico de detecção de movimento por poste",
-      "type": "state-timeline",
-      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 10 },
-      "datasource": { "type": "postgres", "uid": "" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "dark-blue",  "value": null },
-              { "color": "dark-blue",  "value": 0 },
-              { "color": "orange",     "value": 1 }
-            ]
-          },
-          "mappings": [
-            { "type": "value", "options": { "true":  { "color": "orange",    "index": 0, "text": "Movimento" } } },
-            { "type": "value", "options": { "false": { "color": "dark-blue", "index": 1, "text": "Sem movimento" } } }
-          ]
-        },
-        "overrides": []
-      },
-      "options": {
-        "alignValue": "center",
-        "mergeValues": true,
-        "showValue": "auto",
-        "rowHeight": 0.8
-      },
-      "targets": [
-        {
-          "datasource": { "type": "postgres", "uid": "" },
-          "editorMode": "code",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT date_trunc('second', time_index) AS \"time\", entity_id, MAX(CASE WHEN motion_detected = true THEN 1 ELSE 0 END) AS motion_detected FROM mtimdlampservice.etlamp WHERE $__timeFilter(time_index) GROUP BY 1, 2 ORDER BY 1 ASC",
+          "rawSql": "SELECT entity_id AS \"Poste\", status AS \"Status\", brightness AS \"Brilho\", ambient_light AS \"Luz Ambiente\", time_index AS \"Última Atualização\" FROM (SELECT entity_id, status, brightness, ambient_light, time_index, row_number() OVER (PARTITION BY entity_id ORDER BY time_index DESC) as rn FROM mtimdlampservice.etlamp WHERE active = true) t WHERE rn = 1 ORDER BY entity_id ASC",
           "refId": "A"
         }
       ]

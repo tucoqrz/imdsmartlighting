@@ -54,17 +54,15 @@ def simulate():
 
             # 0-400 = noite | 401 - 800 = dia
             ambient_light = random.randint(0, 800) 
-            motion = random.choice([True, False])
             active = True
             payload = {
                 "ambient_light": ambient_light,
-                "motion_detected": motion,
                 "active": active
             }
             url = f"{UPDATE_URL}?i={device_id}&k={API_KEY}"
             try:
                 requests.post(url, json=payload)
-                print(f"{device_id} → ambient={ambient_light}, motion={motion}, active={active}")
+                print(f"{device_id} → ambient={ambient_light}, active={active}")
             except Exception as e:
                 print("Erro:", e)
 
