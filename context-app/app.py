@@ -1,89 +1,103 @@
 from flask import Flask, request
 import requests
-import time
 
 app = Flask(__name__)
 
-ORION_URL = "http://orion:1026/v2/entities"
+# NGSI-LD endpoints
+ORION_URL = "http://orion:1026/ngsi-ld/v1/entities"
+SERVICE = "imdlampservice"
+
+# Contexto padrão para os modelos de dados
+CONTEXT_URL = "https://raw.githubusercontent.com/smart-data-models/dataModel.Streetlighting/master/context.jsonld"
+
+# Headers para atualizações NGSI-LD
 HEADERS = {
-    "fiware-service": "imdlampservice",
-    "fiware-servicepath": "/",
-    "Content-Type": "application/json"
+    "NGSILD-Tenant": SERVICE,
+    "Content-Type": "application/json",
+    "Link": f'<{CONTEXT_URL}>; rel="http://www.w3.org/ns/json-ld#context"; type="application/ld+json"'
 }
-
-def create_subscription():
-    url = "http://orion:1026/v2/subscriptions"
-
-    payload = {
-        "description": "Notify decision engine",
-        "subject": {
-            "entities": [{"idPattern": ".*", "type": "Lamp"}],
-            "condition": {
-                "attrs": ["ambient_light", "motion_detected", "active"]
-            }
-        },
-        "notification": {
-            "http": {
-                "url": "http://context-app:5000/notify"
-            }
-        }
-    }
-
-    for i in range(15):
-        try:
-            res = requests.post(url, json=payload, headers=HEADERS)
-            print("Subscription criada!", res.status_code)
-            return
-        except Exception as e:
-            print(f"Tentativa {i+1}: erro → {e}")
-            time.sleep(3)
-
-    print("Falha ao conectar com Orion, mas app vai continuar rodando.")
 
 @app.route("/notify", methods=["POST"])
 def notify():
-    data = request.json["data"]
+    """
+    Recebe notificações NGSI-LD do Orion-LD.
+    O payload segue o formato normalizado:
+    {
+        "id": "urn:ngsi-ld:Notification:...",
+        "type": "Notification",
+        "subscriptionId": "urn:ngsi-ld:Subscription:...",
+        "data": [
+            {
+                "id": "urn:ngsi-ld:Lamp:001",
+                "type": "Lamp",
+                "ambient_light": { "type": "Property", "value": 500 },
+                "motion_detected": { "type": "Property", "value": true },
+                "active": { "type": "Property", "value": true }
+            }
+        ]
+    }
+    """
+    notification = request.json
 
-    for entity in data:
+    # No NGSI-LD, os dados vêm dentro de "data"
+    entities = notification.get("data", [])
+
+    for entity in entities:
         entity_id = entity["id"]
-        ambient = entity["ambient_light"]["value"]
-        motion = entity["motion_detected"]["value"]
-        active = entity["active"]["value"]
+
+        # No formato normalizado NGSI-LD, atributos são objetos com "value"
+        ambient = entity.get("ambient_light", {}).get("value")
+        motion = entity.get("motion_detected", {}).get("value")
+        active = entity.get("active", {}).get("value")
+
+        # Pula entidades sem os dados necessários
+        if ambient is None or motion is None:
+            print(f"{entity_id} → dados insuficientes, pulando...")
+            continue
 
         # > 400 = Dia -> Poste desligado (Economia de energia)
         if ambient > 400:
             status = "OFF"
             brightness = 0
         else:
-            #se não, noite -> se houver alguém por perto, liga poste
+            # Se não, noite -> se houver alguém por perto, liga poste
             if motion:
                 status = "ON"
                 brightness = 100
-            #se noite -> não há alguém por perto, poste ligado com luminosidade baixa (Economia de energia)
+            # Se noite -> não há alguém por perto, poste ligado com luminosidade baixa
             else:
                 status = "ON"
                 brightness = 20
 
+        # Payload de atualização no formato NGSI-LD normalizado
         update = {
-            "status": {"value": status, "type": "Text"},
-            "brightness": {"value": brightness, "type": "Number"},
-            "active": {"value": active, "type": "Boolean"}
+            "status": {
+                "type": "Property",
+                "value": status
+            },
+            "brightness": {
+                "type": "Property",
+                "value": brightness
+            },
+            "active": {
+                "type": "Property",
+                "value": active if active is not None else True
+            }
         }
 
         try:
-            res = requests.patch(f"{ORION_URL}/{entity_id}/attrs", json=update, headers=HEADERS)
-            print(f"{entity_id} → {status} ({brightness}) | {res.status_code}")
+            # PATCH /ngsi-ld/v1/entities/{entityId}/attrs
+            res = requests.patch(
+                f"{ORION_URL}/{entity_id}/attrs",
+                json=update,
+                headers=HEADERS
+            )
+            print(f"{entity_id} → {status} ({brightness}%) | HTTP {res.status_code}")
         except Exception as e:
             print(f"Erro ao atualizar {entity_id}: {e}")
 
     return "", 200
 
 if __name__ == "__main__":
-    print("Iniciando aplicação...")
-
-    try:
-        create_subscription()
-    except Exception as e:
-        print("Erro na subscription, continuando mesmo assim:", e)
-
+    print("Iniciando Context App (NGSI-LD)...")
     app.run(host="0.0.0.0", port=5000)
