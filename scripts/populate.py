@@ -48,7 +48,13 @@ def create_subscription():
         "description": "Notificar QuantumLeap sobre mudanças nas lâmpadas",
         "type": "Subscription",
         "entities": [{"type": "Lamp"}],
-        "watchedAttributes": ["status", "brightness", "ambient_light", "active"],
+        "watchedAttributes": [
+            "status",
+            "brightness",
+            "ambient_light",
+            "motion_detected",
+            "active"
+        ],
         "notification": {
             "format": "normalized",
             "endpoint": {
@@ -76,7 +82,7 @@ def create_subscription():
         "description": "Notificar motor de decisão sobre mudanças nas lâmpadas",
         "type": "Subscription",
         "entities": [{"type": "Lamp"}],
-        "watchedAttributes": ["ambient_light", "active"],
+        "watchedAttributes": ["ambient_light", "motion_detected", "active"],
         "notification": {
             "format": "normalized",
             "endpoint": {
@@ -139,6 +145,7 @@ def create_lamps(number_of_lamps):
                         { "object_id": "status", "name": "status", "type": "Property" },
                         { "object_id": "brightness", "name": "brightness", "type": "Property" },
                         { "object_id": "ambient_light", "name": "ambient_light", "type": "Property" },
+                        { "object_id": "motion_detected", "name": "motion_detected", "type": "Property" },
                         { "object_id": "active", "name": "active", "type": "Property" }
                     ],
                     # Atributos estáticos: definidos uma vez no provisionamento
@@ -168,11 +175,21 @@ def create_lamps(number_of_lamps):
             print(f"Erro ao provisionar {entity_id}: {e}")
             continue
 
-        # Valores iniciais aleatórios
-        status = random.choice(["ON", "OFF"])
-        brightness = random.randint(0, 100)
+        # Valores iniciais aleatórios dos sensores
         ambient_light = random.randint(0, 800)
+        motion_detected = random.choice([True, False])
         active = True
+
+        # Estado inicial calculado pela mesma regra do Context App
+        if ambient_light > 400:
+            status = "OFF"
+            brightness = 0
+        elif motion_detected:
+            status = "ON"
+            brightness = 100
+        else:
+            status = "ON"
+            brightness = 20
 
         # O envio do dado pelo dispositivo (sul → norte) via JSON do IoT Agent
         update_url = f"{UPDATE_BASE_URL}?i={device_id}&k={API_KEY}"
@@ -181,6 +198,7 @@ def create_lamps(number_of_lamps):
                 "status": status, 
                 "brightness": brightness, 
                 "ambient_light": ambient_light,
+                "motion_detected": motion_detected,
                 "active": active
             })
             print(f"Dados enviados para {entity_id}")
