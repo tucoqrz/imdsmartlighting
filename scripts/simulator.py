@@ -49,20 +49,25 @@ def simulate():
             continue
 
         for entity_id in lamp_ids:
-            # Extrai o device_id a partir do entity_id (urn:ngsi-ld:Lamp:lamp001 → lamp001)
-            device_id = entity_id.split(":")[-1]
+            # urn:ngsi-ld:Lamp:001 -> lamp001
+            device_id = f"lamp{entity_id.split(':')[-1]}"
 
             # 0-400 = noite | 401 - 800 = dia
-            ambient_light = random.randint(0, 800) 
+            ambient_light = random.randint(0, 800)
+            motion_detected = random.choice([True, False])
             active = True
             payload = {
                 "ambient_light": ambient_light,
+                "motion_detected": motion_detected,
                 "active": active
             }
             url = f"{UPDATE_URL}?i={device_id}&k={API_KEY}"
             try:
                 requests.post(url, json=payload)
-                print(f"{device_id} → ambient={ambient_light}, active={active}")
+                print(
+                    f"{device_id} → ambient={ambient_light}, "
+                    f"motion={motion_detected}, active={active}"
+                )
             except Exception as e:
                 print("Erro:", e)
 
