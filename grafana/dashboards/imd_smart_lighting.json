@@ -46,7 +46,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT date_trunc('second', time_index) AS \"time\", entity_id, MAX(brightness) AS brightness FROM mtimdlampservice.etlamp WHERE $__timeFilter(time_index) GROUP BY 1, 2 ORDER BY 1 ASC",
+          "rawSql": "SELECT date_trunc('second', time_index) AS \"time\", entity_id, MAX(CASE WHEN ambient_light > 400 THEN 0 WHEN motion_detected = true THEN 100 ELSE 20 END) AS brightness FROM mtimdlampservice.etlamp WHERE $__timeFilter(time_index) AND ambient_light IS NOT NULL AND motion_detected IS NOT NULL GROUP BY 1, 2 ORDER BY 1 ASC",
           "refId": "A"
         }
       ]
@@ -136,7 +136,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT entity_id AS \"Poste\", status AS \"Status\", brightness AS \"Brilho\", ambient_light AS \"Luz Ambiente\", time_index AS \"Última Atualização\" FROM (SELECT entity_id, status, brightness, ambient_light, time_index, row_number() OVER (PARTITION BY entity_id ORDER BY time_index DESC) as rn FROM mtimdlampservice.etlamp WHERE active = true) t WHERE rn = 1 ORDER BY entity_id ASC",
+          "rawSql": "SELECT entity_id AS \"Poste\", CASE WHEN ambient_light > 400 THEN 'OFF' ELSE 'ON' END AS \"Status\", CASE WHEN ambient_light > 400 THEN 0 WHEN motion_detected = true THEN 100 ELSE 20 END AS \"Brilho\", ambient_light AS \"Luz Ambiente\", motion_detected AS \"Movimento Detectado\", time_index AS \"Última Atualização\" FROM (SELECT entity_id, ambient_light, motion_detected, time_index, row_number() OVER (PARTITION BY entity_id ORDER BY time_index DESC) as rn FROM mtimdlampservice.etlamp WHERE active = true AND ambient_light IS NOT NULL AND motion_detected IS NOT NULL) t WHERE rn = 1 ORDER BY entity_id ASC",
           "refId": "A"
         }
       ]
@@ -184,7 +184,7 @@
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT time_index AS \"time\", entity_id, brightness FROM mtimdlampservice.etlamp WHERE $__timeFilter(time_index) ORDER BY time_index ASC",
+          "rawSql": "SELECT time_index AS \"time\", entity_id, CASE WHEN ambient_light > 400 THEN 0 WHEN motion_detected = true THEN 100 ELSE 20 END AS brightness FROM mtimdlampservice.etlamp WHERE $__timeFilter(time_index) AND ambient_light IS NOT NULL AND motion_detected IS NOT NULL ORDER BY time_index ASC",
           "refId": "A"
         }
       ]
