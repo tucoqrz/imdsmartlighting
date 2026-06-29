@@ -3,138 +3,108 @@ import requests
 
 app = Flask(__name__)
 
-# NGSI-LD endpoints
-ORION_URL = "[http://10.7.52.55:5000/notify](http://10.7.52.55:5000/notify)"
-SERVICE = "imdlampservice"
+# Aponta para o Orion na VM do Grupo 1
+endereco_orion_grupo1 = "http://10.7.52.55:1026/ngsi-ld/v1/entities"
+NOME_DO_SERVICO = "imdlampservice"
+URL_DO_CONTEXTO = "https://raw.githubusercontent.com/smart-data-models/dataModel.Streetlighting/master/context.jsonld"
 
-# Contexto padrão para os modelos de dados
-CONTEXT_URL = "https://raw.githubusercontent.com/smart-data-models/dataModel.Streetlighting/master/context.jsonld"
-
-# Headers para atualizações NGSI-LD
-HEADERS = {
-    "NGSILD-Tenant": SERVICE,
+cabecalhos_atualizacao = {
+    "NGSILD-Tenant": NOME_DO_SERVICO,
     "Content-Type": "application/json",
-    "Link": f'<{CONTEXT_URL}>; rel="http://www.w3.org/ns/json-ld#context"; type="application/ld+json"'
+    "Link": f'<{URL_DO_CONTEXTO}>; rel="http://www.w3.org/ns/json-ld#context"; type="application/ld+json"'
 }
 
-GET_HEADERS = {
-    "NGSILD-Tenant": SERVICE,
+cabecalhos_busca = {
+    "NGSILD-Tenant": NOME_DO_SERVICO,
     "Accept": "application/json",
-    "Link": f'<{CONTEXT_URL}>; rel="http://www.w3.org/ns/json-ld#context"; type="application/ld+json"'
+    "Link": f'<{URL_DO_CONTEXTO}>; rel="http://www.w3.org/ns/json-ld#context"; type="application/ld+json"'
 }
 
-def property_value(entity, attr_name):
-    return entity.get(attr_name, {}).get("value")
+def obter_valor_propriedade(entidade, nome_do_atributo):
+    return entidade.get(nome_do_atributo, {}).get("value")
 
-def fetch_entity_context(entity_id):
+def buscar_contexto_completo(identificador_da_entidade):
     try:
-        res = requests.get(f"{ORION_URL}/{entity_id}", headers=GET_HEADERS)
-        if res.status_code != 200:
-            print(f"{entity_id} → falha ao buscar contexto completo | HTTP {res.status_code}")
+        resposta = requests.get(f"{endereco_orion_grupo1}/{identificador_da_entidade}", headers=cabecalhos_busca)
+        if resposta.status_code != 200:
+            print(f"{identificador_da_entidade} → falha ao buscar contexto completo | HTTP {resposta.status_code}")
             return {}
-        return res.json()
-    except Exception as e:
-        print(f"Erro ao buscar contexto completo de {entity_id}: {e}")
+        return resposta.json()
+    except Exception as erro_busca:
+        print(f"Erro ao buscar contexto completo de {identificador_da_entidade}: {erro_busca}")
         return {}
 
 @app.route("/notify", methods=["POST"])
 def notify():
-    """
-    Recebe notificações NGSI-LD do Orion-LD.
-    O payload segue o formato normalizado:
-    {
-        "id": "urn:ngsi-ld:Notification:...",
-        "type": "Notification",
-        "subscriptionId": "urn:ngsi-ld:Subscription:...",
-        "data": [
-            {
-                "id": "urn:ngsi-ld:Lamp:001",
-                "type": "Lamp",
-                "ambient_light": { "type": "Property", "value": 500 },
-                "motion_detected": { "type": "Property", "value": true },
-                "active": { "type": "Property", "value": true }
-            }
-        ]
-    }
-    """
-    notification = request.json
+    notificacao_recebida = request.json
+    lista_de_entidades = notificacao_recebida.get("data", [])
 
-    # No NGSI-LD, os dados vêm dentro de "data"
-    entities = notification.get("data", [])
+    for entidade_atual in lista_de_entidades:
+        identificador_da_entidade = entidade_atual["id"]
 
-    for entity in entities:
-        entity_id = entity["id"]
+        luz_ambiente = obter_valor_propriedade(entidade_atual, "ambient_light")
+        movimento_detectado = obter_valor_propriedade(entidade_atual, "motion_detected")
+        poste_ativo = obter_valor_propriedade(entidade_atual, "active")
 
-        # No formato normalizado NGSI-LD, atributos são objetos com "value"
-        ambient = property_value(entity, "ambient_light")
-        motion_detected = property_value(entity, "motion_detected")
-        active = property_value(entity, "active")
-
-        if ambient is None or motion_detected is None:
-            full_entity = fetch_entity_context(entity_id)
-            ambient = ambient if ambient is not None else property_value(full_entity, "ambient_light")
-            motion_detected = (
-                motion_detected
-                if motion_detected is not None
-                else property_value(full_entity, "motion_detected")
+        if luz_ambiente is None or movimento_detectado is None:
+            entidade_completa = buscar_contexto_completo(identificador_da_entidade)
+            luz_ambiente = luz_ambiente if luz_ambiente is not None else obter_valor_propriedade(entidade_completa, "ambient_light")
+            movimento_detectado = (
+                movimento_detectado
+                if movimento_detectado is not None
+                else obter_valor_propriedade(entidade_completa, "motion_detected")
             )
-            active = active if active is not None else property_value(full_entity, "active")
+            poste_ativo = poste_ativo if poste_ativo is not None else obter_valor_propriedade(entidade_completa, "active")
 
-        # Pula entidades sem os dados necessários
-        if ambient is None or motion_detected is None:
-            print(f"{entity_id} → dados insuficientes, pulando...")
+        if luz_ambiente is None or movimento_detectado is None:
+            print(f"{identificador_da_entidade} → dados insuficientes, pulando...")
             continue
 
-        # > 400 = Dia -> Poste desligado (Economia de energia)
-        if ambient > 400:
-            status = "OFF"
-            brightness = 0
-        elif motion_detected:
-            # Noite com movimento -> potência máxima
-            status = "ON"
-            brightness = 100
+        if luz_ambiente > 400:
+            status_do_poste = "OFF"
+            brilho_do_poste = 0
+        elif movimento_detectado:
+            status_do_poste = "ON"
+            brilho_do_poste = 100
         else:
-            # Noite sem movimento -> iluminação reduzida
-            status = "ON"
-            brightness = 20
+            status_do_poste = "ON"
+            brilho_do_poste = 20
 
-        # Payload de atualização no formato NGSI-LD normalizado
-        update = {
+        dados_para_atualizar = {
             "status": {
                 "type": "Property",
-                "value": status
+                "value": status_do_poste
             },
             "brightness": {
                 "type": "Property",
-                "value": brightness
+                "value": brilho_do_poste
             },
             "ambient_light": {
                 "type": "Property",
-                "value": ambient
+                "value": luz_ambiente
             },
             "motion_detected": {
                 "type": "Property",
-                "value": motion_detected
+                "value": movimento_detectado
             },
             "active": {
                 "type": "Property",
-                "value": active if active is not None else True
+                "value": poste_ativo if poste_ativo is not None else True
             }
         }
 
         try:
-            # PATCH /ngsi-ld/v1/entities/{entityId}/attrs
-            res = requests.patch(
-                f"{ORION_URL}/{entity_id}/attrs",
-                json=update,
-                headers=HEADERS
+            resposta_patch = requests.patch(
+                f"{endereco_orion_grupo1}/{identificador_da_entidade}/attrs",
+                json=dados_para_atualizar,
+                headers=cabecalhos_atualizacao
             )
-            print(f"{entity_id} → {status} ({brightness}%) | HTTP {res.status_code}")
-        except Exception as e:
-            print(f"Erro ao atualizar {entity_id}: {e}")
+            print(f"{identificador_da_entidade} → {status_do_poste} ({brilho_do_poste}%) | HTTP {resposta_patch.status_code}")
+        except Exception as erro_atualizacao:
+            print(f"Erro ao atualizar {identificador_da_entidade}: {erro_atualizacao}")
 
     return "", 200
 
 if __name__ == "__main__":
-    print("Iniciando Context App (NGSI-LD)...")
+    print("Iniciando Context App (NGSI-LD) na porta 5000...")
     app.run(host="0.0.0.0", port=5000)
