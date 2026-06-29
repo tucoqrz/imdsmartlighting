@@ -2,11 +2,11 @@ import requests
 import random
 import time
 
-# Portas e URLs comuns para a stack NGSI-LD
-IOTA_SERVICES_URL = "http://iot-agent:4041/iot/services"
-IOTA_DEVICES_URL = "http://iot-agent:4041/iot/devices"
-UPDATE_BASE_URL = "http://iot-agent:7896/iot/json"
-ORION_SUBS_URL = "http://orion:1026/ngsi-ld/v1/subscriptions"
+# URLs com nomes descritivos apontando para a VM do Grupo 1 (10.7.52.55)
+url_servicos_iot = "http://10.7.52.55:4041/iot/services"
+url_dispositivos_iot = "http://10.7.52.55:4041/iot/devices"
+url_atualizacao_dados = "http://10.7.52.55:7896/iot/json"
+url_inscricoes_orion = "http://10.7.52.55:1026/ngsi-ld/v1/subscriptions"
 
 SERVICE = "imdlampservice"
 SERVICE_PATH = "/"
@@ -20,7 +20,7 @@ def create_service():
         "services": [
             {
                 "apikey": API_KEY,
-                "cbroker": "http://orion:1026",
+                "cbroker": "http://10.7.52.55:1026",
                 "entity_type": "Lamp",
                 "resource": "/iot/json"
             }
@@ -32,7 +32,7 @@ def create_service():
         "Content-Type": "application/json"
     }
     try:
-        res = requests.post(IOTA_SERVICES_URL, json=payload, headers=headers)
+        res = requests.post(url_servicos_iot, json=payload, headers=headers)
         if res.status_code == 201:
             print(f"Serviço '{SERVICE}' criado com sucesso!")
         elif res.status_code == 409:
@@ -58,7 +58,7 @@ def create_subscription():
         "notification": {
             "format": "normalized",
             "endpoint": {
-                "uri": "http://quantumleap:8668/v2/notify",
+                "uri": "http://10.7.52.55:8668/v2/notify",
                 "accept": "application/json"
             }
         },
@@ -69,7 +69,7 @@ def create_subscription():
         "Content-Type": "application/ld+json"
     }
     try:
-        res = requests.post(ORION_SUBS_URL, json=payload, headers=headers)
+        res = requests.post(url_inscricoes_orion, json=payload, headers=headers)
         if res.status_code == 201:
             print("Subscription para QuantumLeap criada com sucesso!")
         else:
@@ -86,14 +86,14 @@ def create_subscription():
         "notification": {
             "format": "normalized",
             "endpoint": {
-                "uri": "http://context-app:5000/notify",
+                "uri": "http://10.7.52.55:5000/notify",
                 "accept": "application/json"
             }
         },
         "@context": CONTEXT_URL
     }
     try:
-        res = requests.post(ORION_SUBS_URL, json=payload_app, headers=headers)
+        res = requests.post(url_inscricoes_orion, json=payload_app, headers=headers)
         if res.status_code == 201:
             print("Subscription para Context App criada com sucesso!")
         else:
@@ -109,7 +109,6 @@ def create_lamps(number_of_lamps):
     }
 
     # Coordenadas fixas dos postes ao redor do IMD/UFRN (Natal-RN)
-    # Formato GeoJSON: [longitude, latitude]
     lamp_locations = {
         1:  [-35.20736, -5.83454],
         2:  [-35.20681, -5.83401],
@@ -123,13 +122,11 @@ def create_lamps(number_of_lamps):
         10: [-35.20680, -5.83468],
     }
 
-    for i in range(1, number_of_lamps + 1):
-        device_id = f"lamp{i:03d}" 
-        # No NGSI-LD, IDs de entidades DEVEM ser URNs válidas
-        entity_id = f"urn:ngsi-ld:Lamp:{i:03d}"
+    for indice_da_linha in range(1, number_of_lamps + 1):
+        device_id = f"lamp{indice_da_linha:03d}" 
+        entity_id = f"urn:ngsi-ld:Lamp:{indice_da_linha:03d}"
 
-        # Coordenadas do poste (usa posição padrão se não definida)
-        coordinates = lamp_locations.get(i, [-35.2050, -5.8340])
+        coordinates = lamp_locations.get(indice_da_linha, [-35.2050, -5.8340])
         
         device_payload = {
             "devices": [
@@ -140,7 +137,6 @@ def create_lamps(number_of_lamps):
                     "apikey": API_KEY,
                     "protocol": "PDI-IoTA-JSON",
                     "transport": "HTTP",
-                    # Atributos dinâmicos: mudam a cada envio de dados
                     "attributes": [
                         { "object_id": "status", "name": "status", "type": "Property" },
                         { "object_id": "brightness", "name": "brightness", "type": "Property" },
@@ -148,7 +144,6 @@ def create_lamps(number_of_lamps):
                         { "object_id": "motion_detected", "name": "motion_detected", "type": "Property" },
                         { "object_id": "active", "name": "active", "type": "Property" }
                     ],
-                    # Atributos estáticos: definidos uma vez no provisionamento
                     "static_attributes": [
                         {
                             "name": "location",
@@ -164,7 +159,7 @@ def create_lamps(number_of_lamps):
         }
 
         try:
-            res = requests.post(IOTA_DEVICES_URL, json=device_payload, headers=headers)
+            res = requests.post(url_dispositivos_iot, json=device_payload, headers=headers)
             if res.status_code == 201:
                 print(f"{entity_id} provisionado.")
             elif res.status_code == 409:
@@ -175,12 +170,10 @@ def create_lamps(number_of_lamps):
             print(f"Erro ao provisionar {entity_id}: {e}")
             continue
 
-        # Valores iniciais aleatórios dos sensores
         ambient_light = random.randint(0, 800)
         motion_detected = random.choice([True, False])
         active = True
 
-        # Estado inicial calculado pela mesma regra do Context App
         if ambient_light > 400:
             status = "OFF"
             brightness = 0
@@ -191,8 +184,7 @@ def create_lamps(number_of_lamps):
             status = "ON"
             brightness = 20
 
-        # O envio do dado pelo dispositivo (sul → norte) via JSON do IoT Agent
-        update_url = f"{UPDATE_BASE_URL}?i={device_id}&k={API_KEY}"
+        update_url = f"{url_atualizacao_dados}?i={device_id}&k={API_KEY}"
         try:
             requests.post(update_url, json={
                 "status": status, 

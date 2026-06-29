@@ -2,13 +2,11 @@ import requests
 import time
 import random
 
-UPDATE_URL = "http://iot-agent:7896/iot/json"
+# URLs apontando para a máquina do Grupo 1 (10.7.52.55)
+url_envio_dados = "http://10.7.52.55:7896/iot/json"
+url_consulta_entidades = "http://10.7.52.55:1026/ngsi-ld/v1/entities"
+
 API_KEY = "imdlightingmonitoring2026"
-
-# NGSI-LD endpoint para consultar entidades
-ENTITIES_URL = "http://orion:1026/ngsi-ld/v1/entities"
-
-# Contexto padrão para os modelos de dados
 CONTEXT_URL = "https://raw.githubusercontent.com/smart-data-models/dataModel.Streetlighting/master/context.jsonld"
 
 def get_lamps():
@@ -24,10 +22,8 @@ def get_lamps():
     }
 
     try:
-        res = requests.get(ENTITIES_URL, params=params, headers=headers)
+        res = requests.get(url_consulta_entidades, params=params, headers=headers)
         data = res.json()
-        # No NGSI-LD normalizado, atributos são objetos com "value"
-        # Filtra apenas lâmpadas ativas
         return [
             entity["id"]
             for entity in data
@@ -38,36 +34,33 @@ def get_lamps():
         return []
     
 def simulate():
-    print("Iniciando simulador NGSI-LD...")
+    print("Iniciando simulador NGSI-LD apontando para o servidor 10.7.52.55...")
 
     while True:
         lamp_ids = get_lamps()
 
         if not lamp_ids:
-            print("Nenhuma lâmpada encontrada (Orion pode estar reiniciando). Tentando novamente...")
+            print("Nenhuma lâmpada encontrada. Tentando novamente...")
             time.sleep(5)
             continue
 
         for entity_id in lamp_ids:
-            # urn:ngsi-ld:Lamp:001 -> lamp001
             device_id = f"lamp{entity_id.split(':')[-1]}"
 
-            # 0-400 = noite | 401 - 800 = dia
             ambient_light = random.randint(0, 800)
             motion_detected = random.choice([True, False])
             active = True
+            
             payload = {
                 "ambient_light": ambient_light,
                 "motion_detected": motion_detected,
                 "active": active
             }
-            url = f"{UPDATE_URL}?i={device_id}&k={API_KEY}"
+            
+            url = f"{url_envio_dados}?i={device_id}&k={API_KEY}"
             try:
                 requests.post(url, json=payload)
-                print(
-                    f"{device_id} → ambient={ambient_light}, "
-                    f"motion={motion_detected}, active={active}"
-                )
+                print(f"{device_id} → ambient={ambient_light}, motion={motion_detected}, active={active}")
             except Exception as e:
                 print("Erro:", e)
 

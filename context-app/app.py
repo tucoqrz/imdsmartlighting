@@ -4,7 +4,7 @@ import requests
 app = Flask(__name__)
 
 # NGSI-LD endpoints
-ORION_URL = "http://orion:1026/ngsi-ld/v1/entities"
+ORION_URL = "[http://10.7.52.55:5000/notify](http://10.7.52.55:5000/notify)"
 SERVICE = "imdlampservice"
 
 # Contexto padrão para os modelos de dados
